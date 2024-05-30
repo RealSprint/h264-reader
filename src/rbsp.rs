@@ -68,7 +68,9 @@ impl<R: BufRead> ByteReader<R> {
             inner,
             state: ParseState::HeaderByte,
             i: 0,
-            max_fill: 128,
+            // Can't look ahead more then 1 bytes, since
+            // some encoders pass junk data after the SPS NAL.
+            max_fill: 1,
         }
     }
 

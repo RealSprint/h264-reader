@@ -914,7 +914,10 @@ impl SeqParameterSet {
             frame_cropping: FrameCropping::read(&mut r)?,
             vui_parameters: VuiParameters::read(&mut r)?,
         };
-        r.finish_rbsp()?;
+        // AJA Helo plus sends invalid bytes after the SPS
+        // and our current use case never passes something that needs to be full read (such as a cursor),
+        // so we just ignore the rest of the data.
+        // r.finish_rbsp()?;
         Ok(sps)
     }
 
