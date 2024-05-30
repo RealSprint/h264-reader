@@ -1076,7 +1076,10 @@ impl SeqParameterSet {
         };
         let vui_parameters = VuiParameters::read(&mut r, &sps)?;
         sps.vui_parameters = vui_parameters;
-        r.finish_rbsp()?;
+        // AJA Helo plus sends invalid bytes after the SPS
+        // and our current use case never passes something that needs to be full read (such as a cursor),
+        // so we just ignore the rest of the data.
+        // r.finish_rbsp()?;
         Ok(sps)
     }
 
