@@ -434,6 +434,7 @@ pub struct SliceHeader {
     pub sp_for_switch_flag: Option<bool>,
     pub slice_qs: Option<u32>,
     pub disable_deblocking_filter_idc: u8,
+    pub length: u32,
 }
 impl SliceHeader {
     pub fn from_bits<'a, R: BitRead>(
@@ -658,6 +659,7 @@ impl SliceHeader {
             sp_for_switch_flag,
             slice_qs,
             disable_deblocking_filter_idc,
+            length: r.length(),
         };
         Ok((header, sps, pps))
     }

@@ -307,17 +307,21 @@ pub trait BitRead {
     /// This is similar to `finish_rbsp`, but SEI payloads have no trailing bits if
     /// already byte-aligned.
     fn finish_sei_payload(self) -> Result<(), BitReaderError>;
+
+    fn length(&self) -> u32;
 }
 
 /// Reads H.264 bitstream syntax elements from an RBSP representation (no NAL
 /// header byte or emulation prevention three bytes).
 pub struct BitReader<R: std::io::BufRead + Clone> {
     reader: bitstream_io::read::BitReader<R, bitstream_io::BigEndian>,
+    length: u32,
 }
 impl<R: std::io::BufRead + Clone> BitReader<R> {
     pub fn new(inner: R) -> Self {
         Self {
             reader: bitstream_io::read::BitReader::new(inner),
+            length: 0,
         }
     }
 
@@ -337,6 +341,10 @@ impl<R: std::io::BufRead + Clone> BitReader<R> {
 }
 
 impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
+    fn length(&self) -> u32 {
+        self.length / 8
+    }
+
     fn read_ue(&mut self, name: &'static str) -> Result<u32, BitReaderError> {
         let count = self
             .reader
@@ -346,6 +354,7 @@ impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
             return Err(BitReaderError::ExpGolombTooLarge(name));
         } else if count > 0 {
             let val: u32 = self.read(count, name)?;
+
             Ok((1 << count) - 1 + val)
         } else {
             Ok(0)
@@ -357,9 +366,13 @@ impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
     }
 
     fn read_bool(&mut self, name: &'static str) -> Result<bool, BitReaderError> {
-        self.reader
+        let res = self
+            .reader
             .read_bit()
-            .map_err(|e| BitReaderError::ReaderErrorFor(name, e))
+            .map_err(|e| BitReaderError::ReaderErrorFor(name, e));
+        self.length += 1;
+
+        res
     }
 
     fn read<U: Numeric>(
@@ -367,9 +380,13 @@ impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
         bit_count: u32,
         name: &'static str,
     ) -> Result<U, BitReaderError> {
-        self.reader
+        let res = self
+            .reader
             .read(bit_count)
-            .map_err(|e| BitReaderError::ReaderErrorFor(name, e))
+            .map_err(|e| BitReaderError::ReaderErrorFor(name, e));
+        self.length += bit_count;
+
+        res
     }
 
     fn read_to<V: Primitive>(&mut self, name: &'static str) -> Result<V, BitReaderError> {
