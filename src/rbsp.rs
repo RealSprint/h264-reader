@@ -342,7 +342,7 @@ impl<R: std::io::BufRead + Clone> BitReader<R> {
 
 impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
     fn length(&self) -> u32 {
-        self.length / 8
+        self.length
     }
 
     fn read_ue(&mut self, name: &'static str) -> Result<u32, BitReaderError> {
@@ -350,6 +350,7 @@ impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
             .reader
             .read_unary1()
             .map_err(|e| BitReaderError::ReaderErrorFor(name, e))?;
+        self.length += count + 1;
         if count > 31 {
             return Err(BitReaderError::ExpGolombTooLarge(name));
         } else if count > 0 {
@@ -396,9 +397,14 @@ impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
     }
 
     fn skip(&mut self, bit_count: u32, name: &'static str) -> Result<(), BitReaderError> {
-        self.reader
+        let res = self
+            .reader
             .skip(bit_count)
-            .map_err(|e| BitReaderError::ReaderErrorFor(name, e))
+            .map_err(|e| BitReaderError::ReaderErrorFor(name, e));
+
+        self.length += bit_count;
+
+        res
     }
 
     fn has_more_rbsp_data(&mut self, name: &'static str) -> Result<bool, BitReaderError> {
