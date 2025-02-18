@@ -308,6 +308,7 @@ pub trait BitRead {
     /// already byte-aligned.
     fn finish_sei_payload(self) -> Result<(), BitReaderError>;
 
+    /// Returns the number of bits read so far.
     fn length(&self) -> u32;
 }
 
