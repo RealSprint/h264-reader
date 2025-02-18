@@ -355,7 +355,6 @@ impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
             return Err(BitReaderError::ExpGolombTooLarge(name));
         } else if count > 0 {
             let val: u32 = self.read(count, name)?;
-
             Ok((1 << count) - 1 + val)
         } else {
             Ok(0)
