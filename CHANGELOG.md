@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+*   Fix `PicTiming::read_delays` falling back to `nal_hrd_parameters` instead of `vcl_hrd_parameters`.
+
 ## 0.8.0 - 2025-01-28
 
 ### Changed
