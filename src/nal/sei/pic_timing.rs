@@ -266,7 +266,7 @@ impl PicTiming {
             if let Some(ref hrd) = vui_params
                 .nal_hrd_parameters
                 .as_ref()
-                .or_else(|| vui_params.nal_hrd_parameters.as_ref())
+                .or_else(|| vui_params.vcl_hrd_parameters.as_ref())
             {
                 Some(Delays {
                     cpb_removal_delay: r.read(
@@ -330,35 +330,52 @@ mod test {
 
     use super::*;
 
+    // https://standards.iso.org/ittf/PubliclyAvailableStandards/ISO_IEC_14496-4_2004_Amd_6_2005_Bitstreams/
+    // This example taken from CVSEFDFT3_Sony_E.zip.
+    const SONY_SPS: [u8; 46] = hex!(
+        "
+        4d 60 15 8d 8d 28 58 9d 08 00 00 0f a0 00 07 53
+        07 00 00 00 92 7c 00 00 12 4f 80 fb dc 18 00 00
+        0f 42 40 00 07 a1 20 7d ee 07 c6 0c 62 60
+    "
+    );
+
     #[test]
     fn parse() {
-        // https://standards.iso.org/ittf/PubliclyAvailableStandards/ISO_IEC_14496-4_2004_Amd_6_2005_Bitstreams/
-        // This example taken from CVSEFDFT3_Sony_E.zip.
-        let sps = hex!(
-            "
-            4d 60 15 8d 8d 28 58 9d 08 00 00 0f a0 00 07 53
-            07 00 00 00 92 7c 00 00 12 4f 80 fb dc 18 00 00
-            0f 42 40 00 07 a1 20 7d ee 07 c6 0c 62 60
-        "
-        );
-        let sps = sps::SeqParameterSet::from_bits(rbsp::BitReader::new(&sps[..])).unwrap();
+        let sps = sps::SeqParameterSet::from_bits(rbsp::BitReader::new(&SONY_SPS[..])).unwrap();
         let msg = SeiMessage {
             payload_type: HeaderType::PicTiming,
             payload: &hex!("00 00 00 00 00 0c 72")[..],
         };
         let pic_timing = PicTiming::read(&sps, &msg).unwrap();
-        assert_eq!(
-            pic_timing,
-            PicTiming {
-                delays: Some(Delays {
-                    cpb_removal_delay: 0,
-                    dpb_output_delay: 12,
-                }),
-                pic_struct: Some(PicStruct {
-                    pic_struct: PicStructType::FrameDoubling,
-                    clock_timestamps: vec![None, None],
-                }),
-            }
-        );
+        assert_eq!(pic_timing, expected_sony_pic_timing());
+    }
+
+    #[test]
+    fn parse_with_vcl_hrd_only() {
+        // The same stream with its HRD parameters signalled as VCL rather than NAL; the delays
+        // are still present and pic_struct follows them.
+        let mut sps = sps::SeqParameterSet::from_bits(rbsp::BitReader::new(&SONY_SPS[..])).unwrap();
+        let vui = sps.vui_parameters.as_mut().unwrap();
+        vui.vcl_hrd_parameters = vui.nal_hrd_parameters.take();
+        let msg = SeiMessage {
+            payload_type: HeaderType::PicTiming,
+            payload: &hex!("00 00 00 00 00 0c 72")[..],
+        };
+        let pic_timing = PicTiming::read(&sps, &msg).unwrap();
+        assert_eq!(pic_timing, expected_sony_pic_timing());
+    }
+
+    fn expected_sony_pic_timing() -> PicTiming {
+        PicTiming {
+            delays: Some(Delays {
+                cpb_removal_delay: 0,
+                dpb_output_delay: 12,
+            }),
+            pic_struct: Some(PicStruct {
+                pic_struct: PicStructType::FrameDoubling,
+                clock_timestamps: vec![None, None],
+            }),
+        }
     }
 }
